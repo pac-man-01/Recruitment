@@ -3,7 +3,7 @@ import backgroundImg from "../../Util/Images/recp.png";
 import Webcam from "react-webcam";
 import Swal from "sweetalert2";
 import { IoMdCloseCircle } from "react-icons/io";
-import { FaCamera } from "react-icons/fa";
+import { FaCamera, FaUpload } from "react-icons/fa";
 import { IoMdInformationCircle } from "react-icons/io";
 import { AiOutlineCheck } from "react-icons/ai";
 import { BsArrowCounterclockwise } from "react-icons/bs";
@@ -19,11 +19,15 @@ import BASE_URL from "../../Util/configApi";
 const WebCamera = () => {
   const [showWebcam, setShowWebcam] = useState(false);
   const [showSnapshot, setShowSnapshot] = useState(false);
+  const [showGovtIdUpload, setShowGovtIdUpload] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
   const [questionsPopup, setQuestionsPopup] = useState(false);
   const [imageSrc, setImageSrc] = useState(null);
+  const [govtIdFile, setGovtIdFile] = useState(null);
+  const [govtIdPreview, setGovtIdPreview] = useState(null);
   const webcamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [isChecked, setIsChecked] = useState(false);
   const { chat, textMessage } = useChat();
   const getMicContext = useContext(ChatContext);
@@ -37,7 +41,6 @@ const WebCamera = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        // "http://10.218.61.34:8080/get-questions"
         `${BASE_URL}/getPreInterviewQuestions`
       );
       setQuestions(response.data.data);
@@ -45,7 +48,6 @@ const WebCamera = () => {
 
       const token = response.data.access_token;
       localStorage.setItem("access_token", token);
-      // console.log('Token stored in localStorage:', token);
     } catch (error) {
       console.error("Error fetching questions:", error);
       setLoading(false);
@@ -94,7 +96,6 @@ const WebCamera = () => {
             return null;
           }
 
-          // Return formatted object
           return {
             question: item.question,
             answer_type: item.questionType,
@@ -131,6 +132,7 @@ const WebCamera = () => {
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
   };
+
   const handleAllowClick = () => {
     setShowWebcam(true);
   };
@@ -145,10 +147,52 @@ const WebCamera = () => {
     setImageSrc(null);
   };
 
+  const handleCloseGovtIdUpload = () => {
+    setShowGovtIdUpload(false);
+    setGovtIdFile(null);
+    setGovtIdPreview(null);
+  };
+
   const handleTakeSnapshot = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setImageSrc(imageSrc);
     setShowSnapshot(true);
+  };
+
+  const handleRetakeSnapshot = () => {
+    setImageSrc(null);
+    setShowSnapshot(false);
+    setShowWebcam(true);
+  };
+
+  const handlePhotoConfirm = () => {
+    setShowSnapshot(false);
+    setShowWebcam(false);
+    setShowGovtIdUpload(true);
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setGovtIdFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setGovtIdPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBrowseFiles = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleRemoveGovtId = () => {
+    setGovtIdFile(null);
+    setGovtIdPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const uploadPhotograph = async () => {
@@ -159,8 +203,6 @@ const WebCamera = () => {
       photo: imageSrc,
     };
 
-    // Define the API endpoint URL
-    // const apiUrl = 'http://10.218.61.34:8080/uploadPhotograph';
     const apiUrl = `${BASE_URL}/uploadPhotograph`;
 
     try {
@@ -178,41 +220,68 @@ const WebCamera = () => {
     }
   };
 
-  const handleRetakeSnapshot = () => {
-    setImageSrc(null);
-    setShowSnapshot(false);
-    setShowWebcam(true);
+  const uploadGovtId = async () => {
+    const applicationID = sessionStorage.getItem("applicationID");
+
+    const formData = new FormData();
+    formData.append('application_id', applicationID);
+    formData.append('govt_id', govtIdFile);
+
+    const apiUrl = `${BASE_URL}/uploadGovtId`;
+
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await axios.post(apiUrl, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error uploading government ID:", error);
+      throw error;
+    }
   };
 
-  const handleFinalSubmit = () => {
-    // Your final submit logic here
-    setShowDisclaimer(false);
-    setShowSnapshot(false);
-    setShowWebcam(false);
-    setShowInstructions(false);
+  const handleFinalSubmit = async () => {
+    try {
+      // Upload both photo and government ID
+      await uploadPhotograph();
+      await uploadGovtId();
 
-    // const applicationID = sessionStorage.getItem('applicationID');
-    // const imageSrc = 'data:image/jpeg;base64,Base64EncodedImage';
-    uploadPhotograph();
+      setShowDisclaimer(false);
+      setShowSnapshot(false);
+      setShowWebcam(false);
+      setShowGovtIdUpload(false);
+      setShowInstructions(false);
 
-    // Show SweetAlert
-    Swal.fire({
-      icon: "success",
-      text: "Submitted successfully.",
-      confirmButtonColor: "#26890D",
-      confirmButtonText: "Close",
-      customClass: {
-        confirmButton: "custom-button-class",
-      },
-    })
-      .then((result) => {
-        if (result.isConfirmed) {
-          setQuestionsPopup(true);
-        }
+      // Show SweetAlert
+      Swal.fire({
+        icon: "success",
+        text: "Photo and Government ID submitted successfully.",
+        confirmButtonColor: "#26890D",
+        confirmButtonText: "Close",
+        customClass: {
+          confirmButton: "custom-button-class",
+        },
       })
-      .catch((error) => {
-        console.error("Error occurred:", error);
+        .then((result) => {
+          if (result.isConfirmed) {
+            setQuestionsPopup(true);
+          }
+        })
+        .catch((error) => {
+          console.error("Error occurred:", error);
+        });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        text: "Error uploading files. Please try again.",
+        confirmButtonColor: "#26890D",
+        confirmButtonText: "Close",
       });
+    }
   };
 
   const AfterQuestionSubmit = (e) => {
@@ -245,7 +314,6 @@ const WebCamera = () => {
 
   return (
     <div style={{ fontFamily: "Open Sans, sans-serif" }}>
-      {/* <img src={backgroundImg} alt="Background" className="img_fluid" /> */}
       <div className="row mt-2">
         <div className="col-md-12 ">
           <div className="img_container">
@@ -254,10 +322,7 @@ const WebCamera = () => {
                 <div className="snapshot_content">
                   <div className="top_section">
                     <div className="text_close_btn_top">
-                      <p>
-                        Capture your photograph along with your Government
-                        issued Id card
-                      </p>
+                      <p>Review your photograph</p>
                       <IoMdCloseCircle
                         onClick={handleRetakeSnapshot}
                         fontSize="22px"
@@ -279,7 +344,7 @@ const WebCamera = () => {
                     </div>
                     <div
                       className="final_btn_submit"
-                      onClick={handleFinalSubmit}
+                      onClick={handlePhotoConfirm}
                     >
                       <AiOutlineCheck fontSize="20px" color="#ffff" />
                     </div>
@@ -287,9 +352,125 @@ const WebCamera = () => {
                   <div className="disclaimer_text_final">
                     <IoMdInformationCircle color="#316BDE" />
                     <small>
-                      Please capture a clear, front-facing portrait photo of
-                      yourself. <br />
-                      Make sure your face is well-lit and centered in the frame.
+                      Please ensure your photo is clear and well-lit with your face centered in the frame.
+                    </small>
+                  </div>
+                </div>
+              </div>
+            ) : showGovtIdUpload ? (
+              <div className="govt_id_container">
+                <div className="govt_id_content">
+                  <div className="top_section">
+                    <div className="text_close_btn_top">
+                      <p>Upload your Government ID</p>
+                      <IoMdCloseCircle
+                        onClick={handleCloseGovtIdUpload}
+                        fontSize="22px"
+                        color="gray"
+                        cursor="pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="upload_section">
+                    {govtIdPreview ? (
+                      <div className="preview_section">
+                        <img 
+                          src={govtIdPreview} 
+                          alt="Government ID Preview" 
+                          style={{ 
+                            maxWidth: '100%', 
+                            maxHeight: '300px', 
+                            objectFit: 'contain',
+                            border: '2px solid #ddd',
+                            borderRadius: '8px'
+                          }} 
+                        />
+                        <div className="file_actions" style={{ marginTop: '10px' }}>
+                          <button 
+                            onClick={handleRemoveGovtId}
+                            style={{
+                              background: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              marginRight: '10px'
+                            }}
+                          >
+                            Remove
+                          </button>
+                          <button 
+                            onClick={handleBrowseFiles}
+                            style={{
+                              background: '#6c757d',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Choose Different File
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="upload_area" 
+                        onClick={handleBrowseFiles}
+                        style={{
+                          border: '2px dashed #ccc',
+                          borderRadius: '8px',
+                          padding: '40px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          backgroundColor: '#f8f9fa'
+                        }}
+                      >
+                        <FaUpload fontSize="48px" color="#6c757d" />
+                        <p style={{ marginTop: '20px', color: '#6c757d' }}>
+                          Click to browse and select your Government ID
+                        </p>
+                        <small style={{ color: '#6c757d' }}>
+                          Supported formats: JPG, PNG, PDF (Max 5MB)
+                        </small>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf"
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                  <div className="btn_submit">
+                    <div className="back_btn">
+                      <BsArrowCounterclockwise
+                        onClick={() => {
+                          setShowGovtIdUpload(false);
+                          setShowSnapshot(true);
+                        }}
+                        fontSize="20px"
+                        color="#000"
+                      />
+                    </div>
+                    <div
+                      className={`final_btn_submit ${!govtIdFile ? 'disabled' : ''}`}
+                      onClick={govtIdFile ? handleFinalSubmit : undefined}
+                      style={{
+                        backgroundColor: govtIdFile ? '#26890D' : '#ccc',
+                        cursor: govtIdFile ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      <AiOutlineCheck fontSize="20px" color="#ffff" />
+                    </div>
+                  </div>
+                  <div className="disclaimer_text_final">
+                    <IoMdInformationCircle color="#316BDE" />
+                    <small>
+                      Please upload a clear image of your valid government-issued photo ID 
+                      (Driver's License, Passport, National ID, etc.)
                     </small>
                   </div>
                 </div>
@@ -448,10 +629,7 @@ const WebCamera = () => {
             ) : showWebcam ? (
               <div className="webcam_container">
                 <div className="text_close_btn">
-                  <p>
-                    Capture your photograph along with your Government issued Id
-                    card
-                  </p>
+                  <p>Capture your photograph</p>
                   <IoMdCloseCircle
                     onClick={handleCloseWebcam}
                     fontSize="22px"
@@ -478,8 +656,7 @@ const WebCamera = () => {
                 <div className="disclaimer_text">
                   <IoMdInformationCircle color="#316BDE" />
                   <small>
-                    Please capture a clear, front-facing portrait photo of
-                    yourself. <br />
+                    Please capture a clear, front-facing portrait photo of yourself. <br />
                     Make sure your face is well-lit and centered in the frame.
                   </small>
                 </div>
@@ -498,7 +675,7 @@ const WebCamera = () => {
                       or obtaining information using AI technology to assess the
                       information (including personal information but not
                       limited to qualifications and government identification
-                      proof) (“Information”) submitted by you for evaluation of
+                      proof) ("Information") submitted by you for evaluation of
                       your candidature.
                       <br />
                       <br />
@@ -526,7 +703,7 @@ const WebCamera = () => {
                       <br />
                       <br />
                       THE APPLICATION BASED TOOL IS PROVIDED TO YOU OR PERMITTED
-                      USERS ON AN “AS IS” BASIS AND DSSILLP EXPRESSLY DISCLAIMS
+                      USERS ON AN "AS IS" BASIS AND DSSILLP EXPRESSLY DISCLAIMS
                       ALL WARRANTIES WITH RESPECT TO THE APPLICATION AND/OR THE
                       RELATED DOCUMENTATION, INCLUDING, BUT NOT LIMITED TO THOSE
                       OF NON-INFRINGEMENT, SATISFACTORY QUALITY,
@@ -537,17 +714,6 @@ const WebCamera = () => {
                     </p>
                   </div>
                   <div className="disclaimer-footer">
-                    {/* <div className="checkbox_container">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          className="checkBox"
-                          onChange={handleCheckboxChange}
-                        />
-                        <div className="terms-text">
-                          I have read and agreed to the terms and conditions
-                        </div>
-                      </div> */}
                     <label className="custom-checkbox-container">
                       <input
                         type="checkbox"
@@ -607,8 +773,10 @@ const WebCamera = () => {
                         </li>
                         <li>
                           <b>Photo verification:</b> Take a clear, well-lit
-                          selfie holding your valid photo ID next to your face.
-                          Ensure both your face and ID are fully visible
+                          selfie for identity verification.
+                        </li>
+                        <li>
+                          <b>ID upload:</b> Upload a clear image of your valid photo ID.
                         </li>
                         <li>
                           <b>Virtual interview:</b> A virtual recruiter will
@@ -687,7 +855,6 @@ const WebCamera = () => {
                     <div className="disclaimer-footer">
                       <button
                         className="btn col-12 mt-3 mb-3 outline_custom"
-                        // onClick={handleStartInterview}
                         style={{
                           backgroundColor: "#CCCCCC",
                           width: "200px",
