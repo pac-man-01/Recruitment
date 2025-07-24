@@ -27,6 +27,7 @@ const WebCamera = () => {
   const [govtIdPreview, setGovtIdPreview] = useState(null);
   const [currentStep, setCurrentStep] = useState('photo'); // 'photo' or 'govtId'
   const [showGovtIdUpload, setShowGovtIdUpload] = useState(false);
+  const [photoConfirmed, setPhotoConfirmed] = useState(false);
   const webcamRef = useRef(null);
   const fileInputRef = useRef(null);
   const [isChecked, setIsChecked] = useState(false);
@@ -137,32 +138,38 @@ const WebCamera = () => {
   const handleAllowClick = () => {
     setShowWebcam(true);
     setCurrentStep('photo');
+    setShowDisclaimer(false);
   };
 
   const handleStartInterview = () => {
     setShowDisclaimer(true);
+    setShowInstructions(false);
     fetchQuestions();
   };
 
   const handleCloseWebcam = () => {
     setShowWebcam(false);
-    setImageSrc(null);
     setShowGovtIdUpload(false);
+    setShowSnapshot(false);
+    setImageSrc(null);
     setGovtIdFile(null);
     setGovtIdPreview(null);
     setCurrentStep('photo');
+    setPhotoConfirmed(false);
+    setShowInstructions(true);
   };
 
   const handleTakeSnapshot = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setImageSrc(imageSrc);
     setShowSnapshot(true);
+    setShowWebcam(false);
   };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith('image/') || file.type === 'application/pdf') {
         setGovtIdFile(file);
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -172,7 +179,7 @@ const WebCamera = () => {
       } else {
         Swal.fire({
           icon: "error",
-          text: "Please select a valid image file.",
+          text: "Please select a valid image file or PDF.",
           confirmButtonColor: "#26890D",
         });
       }
@@ -234,37 +241,46 @@ const WebCamera = () => {
   };
 
   const handleRetakeSnapshot = () => {
-    setImageSrc(null);
-    setShowSnapshot(false);
     if (currentStep === 'photo') {
+      setImageSrc(null);
+      setShowSnapshot(false);
       setShowWebcam(true);
-    } else {
+    } else if (currentStep === 'govtId') {
+      setGovtIdFile(null);
+      setGovtIdPreview(null);
+      setShowSnapshot(false);
       setShowGovtIdUpload(true);
     }
   };
 
   const handlePhotoConfirm = () => {
     setShowSnapshot(false);
-    setShowWebcam(false);
+    setPhotoConfirmed(true);
     setCurrentStep('govtId');
     setShowGovtIdUpload(true);
   };
 
   const handleGovtIdConfirm = () => {
-    setShowGovtIdUpload(false);
-    handleFinalSubmit();
+    if (govtIdPreview) {
+      setShowSnapshot(true);
+      setShowGovtIdUpload(false);
+      setCurrentStep('govtId');
+    }
   };
 
   const handleFinalSubmit = async () => {
     try {
       // Upload photo
-      await uploadPhotograph();
+      if (imageSrc) {
+        await uploadPhotograph();
+      }
       
       // Upload government ID
       if (govtIdFile) {
         await uploadGovtId();
       }
 
+      // Reset all states
       setShowDisclaimer(false);
       setShowSnapshot(false);
       setShowWebcam(false);
@@ -339,57 +355,8 @@ const WebCamera = () => {
       <div className="row mt-2">
         <div className="col-md-12 ">
           <div className="img_container">
-            {showSnapshot ? (
-              <div className="snapshot_container">
-                <div className="snapshot_content">
-                  <div className="top_section">
-                    <div className="text_close_btn_top">
-                      <p>
-                        {currentStep === 'photo' 
-                          ? "Confirm your photograph" 
-                          : "Confirm your Government ID"}
-                      </p>
-                      <IoMdCloseCircle
-                        onClick={handleRetakeSnapshot}
-                        fontSize="22px"
-                        color="gray"
-                        cursor="pointer"
-                      />
-                    </div>
-                  </div>
-                  <div className="image_section">
-                    <img 
-                      src={currentStep === 'photo' ? imageSrc : govtIdPreview} 
-                      alt="Preview" 
-                      style={{ maxWidth: '400px', maxHeight: '300px' }}
-                    />
-                  </div>
-                  <div className="btn_submit">
-                    <div className="back_btn">
-                      <BsArrowCounterclockwise
-                        onClick={handleRetakeSnapshot}
-                        fontSize="20px"
-                        color="#000"
-                      />
-                    </div>
-                    <div
-                      className="final_btn_submit"
-                      onClick={currentStep === 'photo' ? handlePhotoConfirm : handleGovtIdConfirm}
-                    >
-                      <AiOutlineCheck fontSize="20px" color="#ffff" />
-                    </div>
-                  </div>
-                  <div className="disclaimer_text_final">
-                    <IoMdInformationCircle color="#316BDE" />
-                    <small>
-                      {currentStep === 'photo' 
-                        ? "Please ensure your face is clearly visible and well-lit."
-                        : "Please ensure your Government ID is clear and all details are readable."}
-                    </small>
-                  </div>
-                </div>
-              </div>
-            ) : showGovtIdUpload ? (
+            {/* Government ID Upload Screen */}
+            {showGovtIdUpload && !showSnapshot ? (
               <div className="govt_id_container">
                 <div className="govt_id_content">
                   <div className="text_close_btn">
@@ -413,16 +380,13 @@ const WebCamera = () => {
                       <img 
                         src={govtIdPreview} 
                         alt="Government ID Preview" 
-                        style={{ maxWidth: '400px', maxHeight: '300px' }}
+                        style={{ maxWidth: '400px', maxHeight: '300px', objectFit: 'contain' }}
                       />
                       <div className="upload_actions">
                         <button className="btn_secondary" onClick={removeGovtId}>
                           Remove
                         </button>
-                        <button className="btn_primary" onClick={() => {
-                          setShowSnapshot(true);
-                          setShowGovtIdUpload(false);
-                        }}>
+                        <button className="btn_primary" onClick={handleGovtIdConfirm}>
                           Confirm
                         </button>
                       </div>
@@ -446,7 +410,61 @@ const WebCamera = () => {
                   </div>
                 </div>
               </div>
-            ) : questionsPopup ? (
+            ) 
+            /* Photo/ID Confirmation Screen */
+            : showSnapshot ? (
+              <div className="snapshot_container">
+                <div className="snapshot_content">
+                  <div className="top_section">
+                    <div className="text_close_btn_top">
+                      <p>
+                        {currentStep === 'photo' 
+                          ? "Confirm your photograph" 
+                          : "Confirm your Government ID"}
+                      </p>
+                      <IoMdCloseCircle
+                        onClick={handleRetakeSnapshot}
+                        fontSize="22px"
+                        color="gray"
+                        cursor="pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="image_section">
+                    <img 
+                      src={currentStep === 'photo' ? imageSrc : govtIdPreview} 
+                      alt="Preview" 
+                      style={{ maxWidth: '400px', maxHeight: '300px', objectFit: 'contain' }}
+                    />
+                  </div>
+                  <div className="btn_submit">
+                    <div className="back_btn">
+                      <BsArrowCounterclockwise
+                        onClick={handleRetakeSnapshot}
+                        fontSize="20px"
+                        color="#000"
+                      />
+                    </div>
+                    <div
+                      className="final_btn_submit"
+                      onClick={currentStep === 'photo' ? handlePhotoConfirm : handleFinalSubmit}
+                    >
+                      <AiOutlineCheck fontSize="20px" color="#ffff" />
+                    </div>
+                  </div>
+                  <div className="disclaimer_text_final">
+                    <IoMdInformationCircle color="#316BDE" />
+                    <small>
+                      {currentStep === 'photo' 
+                        ? "Please ensure your face is clearly visible and well-lit. Click confirm to proceed to ID upload."
+                        : "Please ensure your Government ID is clear and all details are readable. Click confirm to submit both documents."}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            ) 
+            /* Questions Popup */
+            : questionsPopup ? (
               <div className="pop_up_last">
                 <div className="container mx-auto">
                   <form onSubmit={AfterQuestionSubmit}>
@@ -597,7 +615,9 @@ const WebCamera = () => {
                   </form>
                 </div>
               </div>
-            ) : showWebcam ? (
+            ) 
+            /* Webcam Screen */
+            : showWebcam ? (
               <div className="webcam_container">
                 <div className="text_close_btn">
                   <p>Capture your photograph</p>
@@ -632,7 +652,9 @@ const WebCamera = () => {
                   </small>
                 </div>
               </div>
-            ) : showDisclaimer ? (
+            ) 
+            /* Disclaimer Screen */
+            : showDisclaimer ? (
               <div className="pop_up">
                 <div className="modal_content">
                   <div className="text_modal">
@@ -715,7 +737,9 @@ const WebCamera = () => {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) 
+            /* Instructions Screen */
+            : (
               showInstructions && (
                 <div className="pop_up">
                   <div className="modal_content">
