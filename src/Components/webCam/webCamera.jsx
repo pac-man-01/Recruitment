@@ -1,5 +1,4 @@
 import React, { useState, useRef, useContext } from "react";
-import backgroundImg from "../../Util/Images/recp.png";
 import Webcam from "react-webcam";
 import Swal from "sweetalert2";
 import { IoMdCloseCircle } from "react-icons/io";
@@ -8,57 +7,140 @@ import { IoMdInformationCircle } from "react-icons/io";
 import { AiOutlineCheck } from "react-icons/ai";
 import { BsArrowCounterclockwise } from "react-icons/bs";
 import "../webCam/webCamera.css";
-import handleConvertToSpeech from "../../Util/text-to-speech";
 import { ChatContext, useChat } from "../../hooks/useChat";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import Loading from "../Loading";
 import BASE_URL from "../../Util/configApi";
 
 const WebCamera = () => {
-  const [showWebcam, setShowWebcam] = useState(false);
-  const [showSnapshot, setShowSnapshot] = useState(false);
-  const [showIdUpload, setShowIdUpload] = useState(false);
-  const [idFile, setIdFile] = useState(null);
-  const [idFilePreview, setIdFilePreview] = useState(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(true);
-  const [questionsPopup, setQuestionsPopup] = useState(false);
+  // Step management
+  const [step, setStep] = useState("instructions"); // instructions | disclaimer | selfie | selfiePreview | idUpload | questions
+  // Selfie
   const [imageSrc, setImageSrc] = useState(null);
   const webcamRef = useRef(null);
+  // ID file
+  const [idFile, setIdFile] = useState(null);
+  const [idFilePreview, setIdFilePreview] = useState(null);
+
+  // Checkbox for disclaimer
   const [isChecked, setIsChecked] = useState(false);
-  const { chat, textMessage } = useChat();
-  const getMicContext = useContext(ChatContext);
+
+  // Questions
+  const { chat } = useChat();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const applicationID = sessionStorage.getItem("applicationID");
+  // Form state for prescreen
+  const [formData, setFormData] = useState({ radioOption1: "", radioOption2: "", textInput: "" });
+  const [errors, setErrors] = useState({});
+
+  // Other flags
+  const [questionsPopup, setQuestionsPopup] = useState(false);
+
+  // Helper to go to step
+  const goto = (s) => setStep(s);
+
+  // ========================= Steps & Actions ===================
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${BASE_URL}/getPreInterviewQuestions`
-      );
+      const response = await axios.get(`${BASE_URL}/getPreInterviewQuestions`);
       setQuestions(response.data.data);
       setLoading(false);
-      const token = response.data.access_token;
-      localStorage.setItem("access_token", token);
+      if (response.data.access_token)
+        localStorage.setItem("access_token", response.data.access_token);
     } catch (error) {
-      console.error("Error fetching questions:", error);
       setLoading(false);
     }
   };
 
-  const [formData, setFormData] = useState({
-    radioOption1: "",
-    radioOption2: "",
-    textInput: "",
-  });
+  // =========================== Selfie ========================
+  const handleTakeSnapshot = () => {
+    if (webcamRef.current) {
+      const src = webcamRef.current.getScreenshot();
+      setImageSrc(src);
+      goto("selfiePreview");
+    }
+  };
+  const handleRetakeSnapshot = () => {
+    setImageSrc(null);
+    goto("selfie");
+  };
 
-  const [errors, setErrors] = useState({});
+  // ========================= ID Upload ========================
+  const handleIdFileChange = (e) => {
+    const file = e.target.files[0];
+    setIdFile(file);
+    setIdFilePreview(file ? URL.createObjectURL(file) : null);
+  };
+  const handleRemoveIDFile = () => {
+    setIdFile(null);
+    setIdFilePreview(null);
+  };
 
+  // ======================== API UPLOAD ========================
+  const uploadPhotographAndID = async () => {
+    const application_id = sessionStorage.getItem("applicationID");
+    // Backend: photo - base64 string, govt_id - file
+    const formData = new FormData();
+    formData.append("application_id", application_id);
+    // Remove "data:image/jpeg;base64," for backend (if required)
+    formData.append("photo", imageSrc.replace(/^data:image\/[a-z]+;base64,/, ""));
+    formData.append("govt_id", idFile);
+
+    const apiUrl = `${BASE_URL}/uploadPhotoAndGovtId`;
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await axios.post(apiUrl, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error?.response?.data?.message || "Upload failed";
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!imageSrc) {
+      Swal.fire({ icon: "warning", text: "Please take a selfie first." });
+      goto("selfie");
+      return;
+    }
+    if (!idFile) {
+      Swal.fire({ icon: "warning", text: "Please upload your Government ID." });
+      goto("idUpload");
+      return;
+    }
+    try {
+      await uploadPhotographAndID();
+      setStep("done");
+      Swal.fire({
+        icon: "success",
+        text: "Submitted successfully.",
+        confirmButtonColor: "#26890D",
+        confirmButtonText: "Close",
+        customClass: {
+          confirmButton: "custom-button-class",
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          setQuestionsPopup(true);
+        }
+      });
+    } catch (errText) {
+      Swal.fire({
+        icon: "error",
+        text: errText || "Upload failed. Please try again.",
+      });
+    }
+  };
+
+  // ====================== PRESCREEN FORM ======================
   const handleInputChange = (e, index) => {
     const { name, value } = e.target;
     setFormData((prevFormData) => ({
@@ -73,6 +155,7 @@ const WebCamera = () => {
 
   const handleFormSubmitOfPrescreen = async () => {
     try {
+      const applicationID = sessionStorage.getItem("applicationID");
       const formattedData = questions
         .map((item, index) => {
           let answer;
@@ -109,132 +192,15 @@ const WebCamera = () => {
         `${BASE_URL}/prescreeningInterviewQA`,
         payload,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
     } catch (error) {
-      console.error("Error submitting form", error);
+      // console.error("Error submitting form", error);
     }
   };
 
-  const handleNavigate = () => {
-    navigate("/pageNotFound");
-  };
-
-  const handleCheckboxChange = () => {
-    setIsChecked(!isChecked);
-  };
-  const handleAllowClick = () => {
-    setShowWebcam(true);
-  };
-
-  const handleStartInterview = () => {
-    setShowDisclaimer(true);
-    fetchQuestions();
-  };
-
-  const handleCloseWebcam = () => {
-    setShowWebcam(false);
-    setImageSrc(null);
-  };
-
-  // ---- STEP: TAKE PHOTO ----
-  const handleTakeSnapshot = () => {
-    // Ensure webcamRef is ready
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      setImageSrc(imageSrc);
-      setShowSnapshot(true);
-      setShowWebcam(false);
-    }
-  };
-
-  const handleRetakeSnapshot = () => {
-    setImageSrc(null);
-    setShowSnapshot(false);
-    setShowWebcam(true);
-  };
-
-  // ---- STEP: GO TO ID UPLOAD ----
-  const handleGoToIDUpload = () => {
-    setShowSnapshot(false);
-    setShowIdUpload(true);
-  };
-
-  const handleIdFileChange = (e) => {
-    const file = e.target.files[0];
-    setIdFile(file);
-    setIdFilePreview(file ? URL.createObjectURL(file) : null);
-  };
-  const handleRemoveIDFile = () => {
-    setIdFile(null);
-    setIdFilePreview(null);
-  };
-
-  // ---- Upload both selfie and ID ----
-  const uploadPhotographAndID = async () => {
-    const applicationID = sessionStorage.getItem("applicationID");
-    const formData = new FormData();
-    formData.append("application_id", applicationID);
-    formData.append("photo", imageSrc);
-    formData.append("govt_id", idFile);
-
-    const apiUrl = `${BASE_URL}/uploadPhotoAndGovtId`;
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.post(apiUrl, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Error uploading:", error);
-      throw error;
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    if (!imageSrc) {
-      Swal.fire({ icon: "warning", text: "Please take a selfie first." });
-      return;
-    }
-    if (!idFile) {
-      Swal.fire({ icon: "warning", text: "Please upload your Government ID." });
-      return;
-    }
-    try {
-      await uploadPhotographAndID();
-      setShowDisclaimer(false);
-      setShowSnapshot(false);
-      setShowWebcam(false);
-      setShowInstructions(false);
-      setShowIdUpload(false);
-
-      Swal.fire({
-        icon: "success",
-        text: "Submitted successfully.",
-        confirmButtonColor: "#26890D",
-        confirmButtonText: "Close",
-        customClass: {
-          confirmButton: "custom-button-class",
-        },
-      }).then((result) => {
-        if (result.isConfirmed) {
-          setQuestionsPopup(true);
-        }
-      });
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        text: "Upload failed. Please try again.",
-      });
-    }
-  };
-
+  // ==================== FINAL PRESCREEN SUBMIT =================
   const AfterQuestionSubmit = (e) => {
     e.preventDefault();
     handleFormSubmitOfPrescreen();
@@ -258,166 +224,299 @@ const WebCamera = () => {
     sessionStorage.setItem("identityConfirmed", true);
   };
 
-  const handleReset = () => {
-    setFormData(formData);
+  // Handlers for steps
+  const handleCheckboxChange = () => setIsChecked((x) => !x);
+  const handleStartInterview = () => {
+    fetchQuestions();
+    goto("disclaimer");
   };
+  const handleInstructionsStart = () => goto("disclaimer");
+  const handleDisclaimerConfirm = () => goto("selfie");
+  const handleGoToIDUpload = () => goto("idUpload");
 
+  // ================== UI FLOW ==========================
   return (
     <div style={{ fontFamily: "Open Sans, sans-serif" }}>
       <div className="row mt-2">
         <div className="col-md-12 ">
           <div className="img_container">
-            {showSnapshot ? (
-              <div className="snapshot_container">
-                <div className="snapshot_content">
-                  <div className="top_section">
-                    <div className="text_close_btn_top">
-                      <p>
-                        Capture your photograph along with your Government
-                        issued Id card
-                      </p>
-                      <IoMdCloseCircle
-                        onClick={handleRetakeSnapshot}
-                        fontSize="22px"
-                        color="gray"
-                        cursor="pointer"
-                      />
-                    </div>
-                  </div>
-                  <div className="image_section">
-                    <img src={imageSrc} alt="Snapshot" />
-                  </div>
-                  <div className="btn_submit">
-                    <div className="back_btn">
-                      <BsArrowCounterclockwise
-                        onClick={handleRetakeSnapshot}
-                        fontSize="20px"
-                        color="#000"
-                      />
-                    </div>
-                    <div
-                      className="final_btn_submit"
-                      onClick={handleGoToIDUpload}
-                    >
-                      <AiOutlineCheck fontSize="20px" color="#ffff" />
-                    </div>
-                  </div>
-                  <div className="disclaimer_text_final">
-                    <IoMdInformationCircle color="#316BDE" />
-                    <small>
-                      Please capture a clear, front-facing portrait photo of
-                      yourself. <br />
-                      Make sure your face is well-lit and centered in the frame.
-                    </small>
-                  </div>
-                </div>
-              </div>
-            ) : showIdUpload ? (
-              <div className="snapshot_container">
-                <div className="snapshot_content">
-                  <div className="top_section">
-                    <div className="text_close_btn_top">
-                      <p>Upload your Government Issued ID Card</p>
-                      <IoMdCloseCircle
-                        onClick={() => {
-                          setShowIdUpload(false);
-                          setShowSnapshot(true);
-                        }}
-                        fontSize="22px"
-                        color="gray"
-                        cursor="pointer"
-                      />
-                    </div>
-                  </div>
-                  <div className="image_section">
-                    {idFilePreview ? (
-                      <div>
-                        <img src={idFilePreview} alt="ID Preview" style={{maxHeight: 200}} />
-                        <button
-                          className="px-3 py-1 bg-red-500 text-white mt-2"
-                          onClick={handleRemoveIDFile}
-                        >Remove</button>
-                      </div>
-                    ) : (
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={handleIdFileChange}
-                        className="my-2"
-                      />
-                    )}
-                  </div>
-                  <div className="btn_submit">
-                    <div className="back_btn"
-                      onClick={() => {
-                        setShowIdUpload(false);
-                        setShowSnapshot(true);
-                      }}>
-                      <BsArrowCounterclockwise fontSize="20px" color="#000" />
-                    </div>
-                    <div
-                      className="final_btn_submit"
-                      onClick={handleFinalSubmit}
-                    >
-                      <AiOutlineCheck fontSize="20px" color="#fff" />
-                    </div>
-                  </div>
-                  <div className="disclaimer_text_final">
-                    <IoMdInformationCircle color="#316BDE" />
-                    <small>
-                      Please upload a clear scan/photo of your government-issued ID.<br />
-                      Accepted formats: JPG, PNG, PDF.
-                    </small>
-                  </div>
-                </div>
-              </div>
-            ) : questionsPopup ? (
-              // ...[rest of your original questionsPopup block]...
+
+            {/* 1. Prescreen Questions */}
+            {questionsPopup && (
               <div className="pop_up_last">
-                {/* The questions popup code stays exactly as you originally had it */}
-                {/* ... */}
-              </div>
-            ) : showWebcam ? (
-              <div className="webcam_container">
-                <div className="text_close_btn">
-                  <p>
-                    Capture your photograph along with your Government issued Id
-                    card
-                  </p>
-                  <IoMdCloseCircle
-                    onClick={handleCloseWebcam}
-                    fontSize="22px"
-                    color="gray"
-                    cursor="pointer"
-                  />
+                <div className="container mx-auto">
+                  <form onSubmit={AfterQuestionSubmit}>
+                    <div className="flex justify-center ">
+                      <h3 className="text-center text-2xl font-semibold text-gray-800 flex-grow">
+                        Prescreening Interview Questions & Answers
+                      </h3>
+                      <IoMdCloseCircle
+                        onClick={() => navigate("/pageNotFound")}
+                        fontSize="20px"
+                        color="gray"
+                        cursor="pointer"
+                      />
+                    </div>
+                    <div className="overflow-y-auto max-h-[21rem] bg-[#EDF9F0] p-4">
+                      <>
+                        {questions &&
+                          questions?.map((item, index) => {
+                            if (item.questionType === "confirmation") {
+                              return (
+                                <div key={index} className="relative mb-4">
+                                  <label className="block text-[#63666a] font-semibold mb-2 text-sm">
+                                    {item.question}
+                                  </label>
+                                  <div className="flex gap-4">
+                                    {item.values.map((value, idx) => (
+                                      <div
+                                        className="flex items-center mb-2"
+                                        key={idx}
+                                      >
+                                        <input
+                                          className="form-radio h-4 w-4 accent-[#26890D] transition duration-150 ease-in-out"
+                                          type="radio"
+                                          required
+                                          name={`radioOption${index}`}
+                                          value={value}
+                                          checked={
+                                            formData[`radioOption${index}`] ===
+                                            value
+                                          }
+                                          onChange={handleInputChange}
+                                        />
+                                        <label className="ml-2 block text-[#63666a] text-base">
+                                          {value}
+                                        </label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            } else if (item.questionType === "dropdown") {
+                              return (
+                                <div key={index} className="mb-4">
+                                  <label className="block text-[#63666a] font-semibold mb-2 text-sm">
+                                    {item.question}
+                                  </label>
+                                  <select
+                                    className="form-select mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    id={`dropdownOption${index}`}
+                                    name={`dropdownOption${index}`}
+                                    value={formData[`dropdownOption${index}`] || ""}
+                                    onChange={handleInputChange}
+                                    required
+                                  >
+                                    <option value="">Select an option</option>
+                                    {item.values.map((value, idx) => (
+                                      <option key={idx} value={value}>{value}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            } else if (item.questionType === "option") {
+                              return (
+                                <div key={index} className="mb-4">
+                                  <label className="block text-[#63666a] font-semibold mb-2 text-sm">
+                                    {item.question}
+                                  </label>
+                                  <div className="flex gap-2">
+                                    {item.values.map((value, idx) => (
+                                      <button
+                                        key={idx}
+                                        className={`py-2 px-4  ${
+                                          formData[`radioOption${index}`] ===
+                                          value
+                                            ? "bg-[#26890D] text-white"
+                                            : "bg-gray-200 text-black"
+                                        }`}
+                                        value={value}
+                                        name={`radioOption${index}`}
+                                        onClick={handleInputChange}
+                                      >
+                                        {value}
+                                      </button>
+                                    ))}
+                                    {errors[`radioOption${index}`] && (
+                                      <div className="text-red-500 text-sm">
+                                        Please select a value.
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            } else if (item.questionType === "inputText") {
+                              return (
+                                <div key={index} className="mb-4">
+                                  <label className="block text-[#63666a] font-semibold mb-2 text-sm">
+                                    {item.question}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="form-input mt-1 block w-full py-2 px-3 border border-gray-300 rounded-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    id="textInput"
+                                    required
+                                    name="textInput"
+                                    placeholder="Enter your answer"
+                                    value={formData.textInput || ""}
+                                    onChange={handleInputChange}
+                                  />
+                                </div>
+                              );
+                            } else {
+                              return null;
+                            }
+                          })}
+                      </>
+                    </div>
+                    <div className="form_submit_btn_final">
+                      <button
+                        type="button"
+                        className="px-4 mt-4 py-1 border border-[#26890D] text-[#26890D]  text-lg outline_custom"
+                        onClick={() => setFormData(formData)}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 mt-4 py-1 bg-[#26890D] text-white text-lg outline_custom"
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </form>
                 </div>
-                <div className="webcam_container2">
-                  <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    width={515}
-                    height={100}
-                  />
-                  <div className="camera_btn">
-                    <FaCamera
-                      onClick={handleTakeSnapshot}
-                      fontSize="20px"
-                      color="black"
-                      style={{ cursor: "pointer" }}
-                    />
+              </div>
+            )}
+
+            {/* 2. Instructions */}
+            {step === "instructions" && (
+              <div className="pop_up">
+                <div className="modal_content">
+                  <div className="text_modal">
+                    <h2>Interview Instructions</h2>
+                    <p style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                      Thank you for your interest in{" "}
+                      <b>{sessionStorage.getItem("jobTitle")}</b> role at
+                      Deloitte. We're excited to learn more about you through
+                      this virtual interview process.
+                    </p>
+                    <p style={{
+                        paddingBottom: 0,
+                        fontWeight: 600,
+                        fontFamily: "'Open Sans', sans-serif",
+                        color: "#63666a",
+                      }}>
+                      Here's what to expect:
+                    </p>
+                    <ul style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                      <li>
+                        <b>Disclaimer</b>: Briefly review the information
+                        about data privacy and usage.
+                      </li>
+                      <li>
+                        <b>Photo verification:</b> Take a clear, well-lit selfie. <br />
+                        <b>Government ID upload:</b> Upload a scanned image or photo of your government issued ID.
+                      </li>
+                      <li>
+                        <b>Virtual interview:</b> A virtual recruiter will
+                        guide you through a series of pre-recorded questions
+                        tailored to the{" "}
+                        <b>{sessionStorage.getItem("jobTitle")}</b> position.
+                        Please answer clearly and concisely.
+                      </li>
+                      <li>
+                        <b>Duration:</b> The interview typically takes 10-15
+                        minutes to complete.
+                      </li>
+                      <li>
+                        <b>No live interaction:</b> There will be no live
+                        interaction during this initial interview. Your
+                        responses will be recorded for review.
+                      </li>
+                    </ul>
+                    <p
+                      style={{
+                        paddingBottom: 0,
+                        fontWeight: 600,
+                        fontFamily: "'Open Sans', sans-serif",
+                        color: "#63666a",
+                      }}
+                    >
+                      Important tips:
+                    </p>
+                    <ul style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                      <li>
+                        Find a quiet, well-lit location with a stable internet connection.
+                      </li>
+                      <li>
+                        Use a device with a functioning webcam and microphone.
+                      </li>
+                      <li>
+                        Dress professionally and present yourself in a
+                        positive manner.
+                      </li>
+                      <li>
+                        Listen carefully to each question and provide
+                        thoughtful, complete answers.
+                      </li>
+                      <li>
+                        Speak clearly and avoid background noise or distractions.
+                      </li>
+                    </ul>
+                    <p
+                      style={{
+                        paddingBottom: 0,
+                        marginBottom: 0,
+                        fontWeight: 600,
+                        fontFamily: "'Open Sans', sans-serif",
+                        color: "#63666a",
+                      }}
+                    >
+                      What happens next?
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 0,
+                        fontFamily: "'Open Sans', sans-serif",
+                      }}
+                    >
+                      Based on your responses, we will be in touch within 5 business days to inform you about the next steps in the interview process.
+                      <br />
+                      Thank you for your time and interest in Deloitte! <br />
+                      By clicking "Start Interview," you acknowledge that you have read and understood these instructions.
+                    </p>
+                  </div>
+                  <div className="disclaimer-footer">
+                    <button
+                      className="btn col-12 mt-3 mb-3 outline_custom"
+                      style={{
+                        backgroundColor: "#CCCCCC",
+                        width: "200px",
+                        color: "#26890D",
+                      }}
+                      onClick={() => navigate('/')}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn col-12 mt-3 mb-3 ml-6"
+                      onClick={handleInstructionsStart}
+                      style={{
+                        width: "200px",
+                        backgroundColor: "#26890d",
+                        color: "white",
+                      }}
+                    >
+                      Start Interview
+                    </button>
                   </div>
                 </div>
-                <div className="disclaimer_text">
-                  <IoMdInformationCircle color="#316BDE" />
-                  <small>
-                    Please capture a clear, front-facing portrait photo of
-                    yourself. <br />
-                    Make sure your face is well-lit and centered in the frame.
-                  </small>
-                </div>
               </div>
-            ) : showDisclaimer ? (
+            )}
+
+            {/* 3. Disclaimer */}
+            {step === "disclaimer" && (
               <div className="pop_up">
                 <div className="modal_content">
                   <div className="text_modal">
@@ -425,6 +524,7 @@ const WebCamera = () => {
                       Disclaimer
                     </h2>
                     <p style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                      {/* --- Your disclaimer text as before --- */}
                       This virtual interview application that has been developed
                       is exclusively owned by Deloitte Shared Services India LLP
                       (DSSILLP). The application enables collecting, compiling
@@ -485,7 +585,7 @@ const WebCamera = () => {
                     <button
                       disabled={!isChecked}
                       className="btn col-12 mt-3 mb-3"
-                      onClick={handleAllowClick}
+                      onClick={handleDisclaimerConfirm}
                       style={{
                         backgroundColor: !isChecked ? "#CCCCCC" : "#26890D",
                         border: !isChecked
@@ -500,142 +600,155 @@ const WebCamera = () => {
                   </div>
                 </div>
               </div>
-            ) : (
-              showInstructions && (
-                <div className="pop_up">
-                  <div className="modal_content">
-                    <div className="text_modal">
-                      <h2>Interview Instructions</h2>
-                      <p style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                        Thank you for your interest in{" "}
-                        <b>{sessionStorage.getItem("jobTitle")}</b> role at
-                        Deloitte. We're excited to learn more about you through
-                        this virtual interview process.
-                      </p>
-                      <p
-                        style={{
-                          paddingBottom: 0,
-                          fontWeight: 600,
-                          fontFamily: "'Open Sans', sans-serif",
-                          color: "#63666a",
-                        }}
-                      >
-                        Here's what to expect:
-                      </p>
-                      <ul style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                        <li>
-                          <b>Disclaimer</b>: Briefly review the information
-                          about data privacy and usage.
-                        </li>
-                        <li>
-                          <b>Photo verification:</b> Take a clear, well-lit
-                          selfie holding your valid photo ID next to your face.
-                          Ensure both your face and ID are fully visible
-                        </li>
-                        <li>
-                          <b>Government ID upload:</b> Upload a scanned image or photo of your government issued ID.
-                        </li>
-                        <li>
-                          <b>Virtual interview:</b> A virtual recruiter will
-                          guide you through a series of pre-recorded questions
-                          tailored to the{" "}
-                          <b>{sessionStorage.getItem("jobTitle")}</b> position.
-                          Please answer clearly and concisely.
-                        </li>
-                        <li>
-                          <b>Duration:</b> The interview typically takes 10-15
-                          minutes to complete.
-                        </li>
-                        <li>
-                          <b>No live interaction:</b> There will be no live
-                          interaction during this initial interview. Your
-                          responses will be recorded for review.
-                        </li>
-                      </ul>
-                      <p
-                        style={{
-                          paddingBottom: 0,
-                          fontWeight: 600,
-                          fontFamily: "'Open Sans', sans-serif",
-                          color: "#63666a",
-                        }}
-                      >
-                        Important tips:
-                      </p>
-                      <ul style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                        <li>
-                          Find a quiet, well-lit location with a stable internet
-                          connection.
-                        </li>
-                        <li>
-                          Use a device with a functioning webcam and microphone.
-                        </li>
-                        <li>
-                          Dress professionally and present yourself in a
-                          positive manner.
-                        </li>
-                        <li>
-                          Listen carefully to each question and provide
-                          thoughtful, complete answers.
-                        </li>
-                        <li>
-                          Speak clearly and avoid background noise or
-                          distractions.
-                        </li>
-                      </ul>
-                      <p
-                        style={{
-                          paddingBottom: 0,
-                          marginBottom: 0,
-                          fontWeight: 600,
-                          fontFamily: "'Open Sans', sans-serif",
-                          color: "#63666a",
-                        }}
-                      >
-                        What happens next?
-                      </p>
-                      <p
-                        style={{
-                          marginTop: 0,
-                          fontFamily: "'Open Sans', sans-serif",
-                        }}
-                      >
-                        Based on your responses, we will be in touch within 5
-                        business days to inform you about the next steps in the
-                        interview process.
-                        <br />
-                        Thank you for your time and interest in Deloitte! <br />
-                        By clicking "Start Interview," you acknowledge that you
-                        have read and understood these instructions.
-                      </p>
-                    </div>
-                    <div className="disclaimer-footer">
-                      <button
-                        className="btn col-12 mt-3 mb-3 outline_custom"
-                        style={{
-                          backgroundColor: "#CCCCCC",
-                          width: "200px",
-                          color: "#26890D",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="btn col-12 mt-3 mb-3 ml-6"
-                        onClick={handleStartInterview}
-                        style={{
-                          width: "200px",
-                          backgroundColor: "#26890d",
-                          color: "white",
-                        }}
-                      >
-                        Start Interview
-                      </button>
-                    </div>
+            )}
+
+            {/* 4. Capture Selfie */}
+            {step === "selfie" && (
+              <div className="webcam_container">
+                <div className="text_close_btn">
+                  <p>
+                    Capture your photograph (Selfie).<br />
+                    <span style={{ fontSize: 14 }}>You will upload your Government ID in the next step.</span>
+                  </p>
+                  <IoMdCloseCircle
+                    onClick={() => goto("instructions")}
+                    fontSize="22px"
+                    color="gray"
+                    cursor="pointer"
+                  />
+                </div>
+                <div className="webcam_container2">
+                  <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    width={515}
+                    height={100}
+                  />
+                  <div className="camera_btn">
+                    <FaCamera
+                      onClick={handleTakeSnapshot}
+                      fontSize="24px"
+                      color="black"
+                      style={{ cursor: "pointer" }}
+                    />
                   </div>
                 </div>
-              )
+                <div className="disclaimer_text">
+                  <IoMdInformationCircle color="#316BDE" />
+                  <small>
+                    Please capture a clear, front-facing portrait photo of yourself.<br />
+                    Make sure your face is well-lit and centered in the frame.
+                  </small>
+                </div>
+              </div>
             )}
+
+            {/* 5. Preview Selfie */}
+            {step === "selfiePreview" && (
+              <div className="snapshot_container">
+                <div className="snapshot_content">
+                  <div className="top_section">
+                    <div className="text_close_btn_top">
+                      <p>Preview your Selfie</p>
+                      <IoMdCloseCircle
+                        onClick={handleRetakeSnapshot}
+                        fontSize="22px"
+                        color="gray"
+                        cursor="pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="image_section">
+                    <img src={imageSrc} alt="Snapshot" />
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '16px',
+                    margin: '24px 0 0 0',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <button type="button" className="btn_submit back_btn" style={{margin: 0}} onClick={handleRetakeSnapshot}>
+                      <BsArrowCounterclockwise fontSize="22px" color="#000" />
+                    </button>
+                    <button type="button" className="btn_submit final_btn_submit" style={{margin: 0, backgroundColor: "#26890d"}} onClick={handleGoToIDUpload}>
+                      <AiOutlineCheck fontSize="22px" color="#fff" />
+                    </button>
+                  </div>
+                  <div className="disclaimer_text_final" style={{marginTop: 20}}>
+                    <IoMdInformationCircle color="#316BDE" />
+                    <small>
+                      Please capture a clear, front-facing portrait photo of yourself.<br />
+                      Make sure your face is well-lit and centered in the frame.
+                    </small>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 6. Government ID Upload */}
+            {step === "idUpload" && (
+              <div className="snapshot_container">
+                <div className="snapshot_content">
+                  <div className="top_section">
+                    <div className="text_close_btn_top">
+                      <p>Upload your Government Issued ID Card</p>
+                      <IoMdCloseCircle
+                        onClick={() => goto("selfiePreview")}
+                        fontSize="22px"
+                        color="gray"
+                        cursor="pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="image_section" style={{minHeight: 60}}>
+                    {idFilePreview ? (
+                      <div style={{textAlign: 'center'}}>
+                        <img src={idFilePreview} alt="ID Preview" style={{maxHeight: 180, borderRadius: 4}} />
+                        <br />
+                        <button
+                          className="px-3 py-1 bg-red-500 text-white mt-2"
+                          onClick={handleRemoveIDFile}
+                          type="button"
+                          style={{fontSize: '13px', marginTop: 8}}
+                        >Remove</button>
+                      </div>
+                    ) : (
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={handleIdFileChange}
+                        className="my-2"
+                        style={{padding: 6, display: "block", margin: "0 auto"}}
+                      />
+                    )}
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '16px',
+                    margin: '24px 0 0 0',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <button type="button" className="btn_submit back_btn" style={{margin: 0}} onClick={() => goto("selfiePreview")}>
+                      <BsArrowCounterclockwise fontSize="22px" color="#000" />
+                    </button>
+                    <button type="button" className="btn_submit final_btn_submit" style={{margin: 0, backgroundColor: "#26890d"}} onClick={handleFinalSubmit}>
+                      <AiOutlineCheck fontSize="22px" color="#fff" />
+                    </button>
+                  </div>
+                  <div className="disclaimer_text_final" style={{marginTop: 20}}>
+                    <IoMdInformationCircle color="#316BDE" />
+                    <small>
+                      Please upload a clear scan/photo of your government-issued ID.<br />
+                      Accepted formats: JPG, PNG, PDF.
+                    </small>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
