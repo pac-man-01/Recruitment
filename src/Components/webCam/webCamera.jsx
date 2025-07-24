@@ -1,5 +1,4 @@
 import React, { useState, useRef, useContext } from "react";
-import backgroundImg from "../../Util/Images/recp.png";
 import Webcam from "react-webcam";
 import Swal from "sweetalert2";
 import { IoMdCloseCircle } from "react-icons/io";
@@ -8,50 +7,37 @@ import { IoMdInformationCircle } from "react-icons/io";
 import { AiOutlineCheck } from "react-icons/ai";
 import { BsArrowCounterclockwise } from "react-icons/bs";
 import "../webCam/webCamera.css";
-import handleConvertToSpeech from "../../Util/text-to-speech";
 import { ChatContext, useChat } from "../../hooks/useChat";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import Loading from "../Loading";
 import BASE_URL from "../../Util/configApi";
 
 const WebCamera = () => {
-  // Step flow: instructions, disclaimer, webcam, photo-confirm, id-upload, id-confirm, submitted, questions
-  const [step, setStep] = useState("instructions");
-  const [showQuestionsPopup, setShowQuestionsPopup] = useState(false);
-
-  // Photo capture data
+  const [step, setStep] = useState("instructions"); // instructions, disclaimer, webcam, photo-confirm, id-upload, id-confirm, finished, questions
   const [imageSrc, setImageSrc] = useState(null);
-
-  // Govt ID file
   const [govtIdFile, setGovtIdFile] = useState(null);
   const [govtIdPreview, setGovtIdPreview] = useState(null);
-
-  // Various hooks and state from your original code
   const [isChecked, setIsChecked] = useState(false);
   const webcamRef = useRef(null);
   const fileInputRef = useRef(null);
   const { chat } = useChat();
-  const getMicContext = useContext(ChatContext);
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
+  const [showQuestionsPopup, setShowQuestionsPopup] = useState(false);
 
   const applicationID = sessionStorage.getItem("applicationID");
 
-  // Question fetch remains unchanged
+  // Question fetch logic
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${BASE_URL}/getPreInterviewQuestions`
-      );
+      const response = await axios.get(`${BASE_URL}/getPreInterviewQuestions`);
       setQuestions(response.data.data);
       setLoading(false);
-
       const token = response.data.access_token;
       localStorage.setItem("access_token", token);
     } catch (error) {
@@ -60,22 +46,15 @@ const WebCamera = () => {
     }
   };
 
-  // Standard form handlers from your original code
+  // Form for questions
   const handleInputChange = (e, index) => {
     const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
-    setErrors((prevErrors) => ({
-      ...prevErrors,
-      [`radioOption${index}`]: false,
-    }));
+    setFormData((prevFormData) => ({ ...prevFormData, [name]: value }));
+    setErrors((prevErrors) => ({ ...prevErrors, [`radioOption${index}`]: false }));
   };
 
-  // Prescreen logic unchanged
+  // Prescreen
   const handleFormSubmitOfPrescreen = async () => {
-    const applicationID = sessionStorage.getItem("applicationID");
     try {
       const formattedData = questions
         .map((item, index) => {
@@ -120,19 +99,18 @@ const WebCamera = () => {
   };
 
   const handleNavigate = () => navigate("/pageNotFound");
-
   const handleReset = () => setFormData({
     radioOption1: "",
     radioOption2: "",
     textInput: ""
   });
 
-  // --- Step transitions ---
+  // ----- Step transitions -----
   const handleInstructionsNext = () => { setStep("disclaimer"); };
   const handleDisclaimerConfirm = () => { setStep("webcam"); fetchQuestions(); };
   const handleCancelToStart = () => { setStep("instructions"); resetUploadStates(); };
 
-  // Capture photo logic
+  // Photo capture
   const handleTakeSnapshot = () => {
     setImageSrc(webcamRef.current.getScreenshot());
     setStep("photo-confirm");
@@ -143,7 +121,7 @@ const WebCamera = () => {
   };
   const handlePhotoConfirm = () => setStep("id-upload");
 
-  // --- Govt ID file upload/preview/confirm ---
+  // Government ID
   const triggerFileUpload = () => fileInputRef.current.click();
   const handleFileUpload = event => {
     const file = event.target.files[0];
@@ -181,7 +159,7 @@ const WebCamera = () => {
     setStep("id-upload");
   };
 
-  // --- File uploads ---
+  // File uploads
   const uploadPhotograph = async () => {
     if (!imageSrc) return;
     const obj = { application_id: applicationID, photo: imageSrc };
@@ -230,7 +208,7 @@ const WebCamera = () => {
       }).then((result) => {
         if (result.isConfirmed) setShowQuestionsPopup(true);
       });
-      setStep("submitted");
+      setStep("finished");
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -240,12 +218,11 @@ const WebCamera = () => {
     }
   };
 
-  // --- Questions step
+  // Questions logic
   const AfterQuestionSubmit = (e) => {
     e.preventDefault();
     handleFormSubmitOfPrescreen();
     setShowQuestionsPopup(false);
-
     const request = {
       session: uuidv4(),
       queryInput: {
@@ -258,7 +235,6 @@ const WebCamera = () => {
         parameters: JSON.parse(sessionStorage.getItem("queryParams")),
       },
     };
-
     chat(request);
     sessionStorage.setItem("identityConfirmed", true);
   };
@@ -269,7 +245,6 @@ const WebCamera = () => {
       <div className="row mt-2">
         <div className="col-md-12 ">
           <div className="img_container">
-
             {/* Instructions */}
             {step === "instructions" && (
               <div className="pop_up">
@@ -322,7 +297,8 @@ const WebCamera = () => {
                       <div className="terms-text">I have read and agreed to the terms and conditions</div>
                     </label>
                     <button
-                      disabled={!isChecked} className="btn col-12 mt-3 mb-3"
+                      disabled={!isChecked}
+                      className="btn col-12 mt-3 mb-3"
                       onClick={handleDisclaimerConfirm}
                       style={{
                         backgroundColor: !isChecked ? "#CCCCCC" : "#26890D",
@@ -337,7 +313,7 @@ const WebCamera = () => {
               </div>
             )}
 
-            {/* Webcam for Photo Capture */}
+            {/* Webcam */}
             {step === "webcam" && (
               <div className="webcam_container">
                 <div className="text_close_btn">
