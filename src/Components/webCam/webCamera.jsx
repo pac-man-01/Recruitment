@@ -17,9 +17,7 @@ import Loading from "../Loading";
 import BASE_URL from "../../Util/configApi";
 
 const WebCamera = () => {
-  const [showWebcam, setShowWebcam] = useState(false);
-  const [showSnapshot, setShowSnapshot] = useState(false);
-  const [showGovtIdUpload, setShowGovtIdUpload] = useState(false);
+  const [showSideBySide, setShowSideBySide] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
   const [questionsPopup, setQuestionsPopup] = useState(false);
@@ -134,7 +132,7 @@ const WebCamera = () => {
   };
 
   const handleAllowClick = () => {
-    setShowWebcam(true);
+    setShowSideBySide(true);
   };
 
   const handleStartInterview = () => {
@@ -142,33 +140,13 @@ const WebCamera = () => {
     fetchQuestions();
   };
 
-  const handleCloseWebcam = () => {
-    setShowWebcam(false);
-    setImageSrc(null);
-  };
-
-  const handleCloseGovtIdUpload = () => {
-    setShowGovtIdUpload(false);
-    setGovtIdFile(null);
-    setGovtIdPreview(null);
-  };
-
   const handleTakeSnapshot = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setImageSrc(imageSrc);
-    setShowSnapshot(true);
   };
 
   const handleRetakeSnapshot = () => {
     setImageSrc(null);
-    setShowSnapshot(false);
-    setShowWebcam(true);
-  };
-
-  const handlePhotoConfirm = () => {
-    setShowSnapshot(false);
-    setShowWebcam(false);
-    setShowGovtIdUpload(true);
   };
 
   const handleFileSelect = (event) => {
@@ -245,15 +223,23 @@ const WebCamera = () => {
   };
 
   const handleFinalSubmit = async () => {
+    if (!imageSrc || !govtIdFile) {
+      Swal.fire({
+        icon: "warning",
+        text: "Please capture your photo and upload your government ID.",
+        confirmButtonColor: "#26890D",
+        confirmButtonText: "Close",
+      });
+      return;
+    }
+
     try {
       // Upload both photo and government ID
       await uploadPhotograph();
       await uploadGovtId();
 
       setShowDisclaimer(false);
-      setShowSnapshot(false);
-      setShowWebcam(false);
-      setShowGovtIdUpload(false);
+      setShowSideBySide(false);
       setShowInstructions(false);
 
       // Show SweetAlert
@@ -317,161 +303,196 @@ const WebCamera = () => {
       <div className="row mt-2">
         <div className="col-md-12 ">
           <div className="img_container">
-            {showSnapshot ? (
-              <div className="snapshot_container">
-                <div className="snapshot_content">
-                  <div className="top_section">
-                    <div className="text_close_btn_top">
-                      <p>Review your photograph</p>
-                      <IoMdCloseCircle
-                        onClick={handleRetakeSnapshot}
-                        fontSize="22px"
-                        color="gray"
-                        cursor="pointer"
-                      />
-                    </div>
-                  </div>
-                  <div className="image_section">
-                    <img src={imageSrc} alt="Snapshot" />
-                  </div>
-                  <div className="btn_submit">
-                    <div className="back_btn">
-                      <BsArrowCounterclockwise
-                        onClick={handleRetakeSnapshot}
-                        fontSize="20px"
-                        color="#000"
-                      />
-                    </div>
-                    <div
-                      className="final_btn_submit"
-                      onClick={handlePhotoConfirm}
-                    >
-                      <AiOutlineCheck fontSize="20px" color="#ffff" />
-                    </div>
-                  </div>
-                  <div className="disclaimer_text_final">
-                    <IoMdInformationCircle color="#316BDE" />
-                    <small>
-                      Please ensure your photo is clear and well-lit with your face centered in the frame.
-                    </small>
-                  </div>
-                </div>
-              </div>
-            ) : showGovtIdUpload ? (
-              <div className="govt_id_container">
-                <div className="govt_id_content">
-                  <div className="top_section">
-                    <div className="text_close_btn_top">
-                      <p>Upload your Government ID</p>
-                      <IoMdCloseCircle
-                        onClick={handleCloseGovtIdUpload}
-                        fontSize="22px"
-                        color="gray"
-                        cursor="pointer"
-                      />
-                    </div>
-                  </div>
-                  <div className="upload_section">
-                    {govtIdPreview ? (
-                      <div className="preview_section">
-                        <img 
-                          src={govtIdPreview} 
-                          alt="Government ID Preview" 
-                          style={{ 
-                            maxWidth: '100%', 
-                            maxHeight: '300px', 
-                            objectFit: 'contain',
-                            border: '2px solid #ddd',
-                            borderRadius: '8px'
-                          }} 
-                        />
-                        <div className="file_actions" style={{ marginTop: '10px' }}>
-                          <button 
-                            onClick={handleRemoveGovtId}
-                            style={{
-                              background: '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              marginRight: '10px'
-                            }}
-                          >
-                            Remove
-                          </button>
-                          <button 
-                            onClick={handleBrowseFiles}
-                            style={{
-                              background: '#6c757d',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '4px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Choose Different File
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="upload_area" 
-                        onClick={handleBrowseFiles}
-                        style={{
-                          border: '2px dashed #ccc',
+            {showSideBySide ? (
+              <div style={{ 
+                display: 'flex', 
+                gap: '30px', 
+                justifyContent: 'center', 
+                alignItems: 'flex-start',
+                padding: '20px',
+                minHeight: '70vh'
+              }}>
+                {/* Photo Capture Section */}
+                <div style={{
+                  background: '#fff',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  width: '400px',
+                  textAlign: 'center'
+                }}>
+                  <h3 style={{ marginBottom: '20px', color: '#333' }}>Capture Your Photograph</h3>
+                  
+                  {imageSrc ? (
+                    <div>
+                      <img 
+                        src={imageSrc} 
+                        alt="Captured" 
+                        style={{ 
+                          width: '100%', 
+                          maxHeight: '300px', 
+                          objectFit: 'contain',
+                          border: '2px solid #ddd',
                           borderRadius: '8px',
-                          padding: '40px',
-                          textAlign: 'center',
+                          marginBottom: '15px'
+                        }} 
+                      />
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <button
+                          onClick={handleRetakeSnapshot}
+                          style={{
+                            background: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Retake
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <Webcam
+                        audio={false}
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg"
+                        width={350}
+                        height={260}
+                        style={{ borderRadius: '8px', marginBottom: '15px' }}
+                      />
+                      <button
+                        onClick={handleTakeSnapshot}
+                        style={{
+                          background: '#26890D',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '4px',
                           cursor: 'pointer',
-                          backgroundColor: '#f8f9fa'
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          margin: '0 auto'
                         }}
                       >
-                        <FaUpload fontSize="48px" color="#6c757d" />
-                        <p style={{ marginTop: '20px', color: '#6c757d' }}>
-                          Click to browse and select your Government ID
-                        </p>
-                        <small style={{ color: '#6c757d' }}>
-                          Supported formats: JPG, PNG, PDF (Max 5MB)
-                        </small>
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      accept="image/*,.pdf"
-                      style={{ display: 'none' }}
-                    />
-                  </div>
-                  <div className="btn_submit">
-                    <div className="back_btn">
-                      <BsArrowCounterclockwise
-                        onClick={() => {
-                          setShowGovtIdUpload(false);
-                          setShowSnapshot(true);
-                        }}
-                        fontSize="20px"
-                        color="#000"
-                      />
+                        <FaCamera /> Capture Photo
+                      </button>
                     </div>
+                  )}
+                  
+                  <div style={{ 
+                    marginTop: '15px', 
+                    color: '#316BDE', 
+                    fontSize: '14px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: '5px'
+                  }}>
+                    <IoMdInformationCircle />
+                    <small>Please capture a clear, front-facing portrait photo.</small>
+                  </div>
+                </div>
+
+                {/* Government ID Upload Section */}
+                <div style={{
+                  background: '#fff',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  width: '400px',
+                  textAlign: 'center'
+                }}>
+                  <h3 style={{ marginBottom: '20px', color: '#333' }}>Upload Government ID</h3>
+                  
+                  {govtIdPreview ? (
+                    <div>
+                      <img 
+                        src={govtIdPreview} 
+                        alt="Government ID" 
+                        style={{ 
+                          width: '100%', 
+                          maxHeight: '300px', 
+                          objectFit: 'contain',
+                          border: '2px solid #ddd',
+                          borderRadius: '8px',
+                          marginBottom: '15px'
+                        }} 
+                      />
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <button
+                          onClick={handleRemoveGovtId}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                        <button
+                          onClick={handleBrowseFiles}
+                          style={{
+                            background: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Choose Different
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <div
-                      className={`final_btn_submit ${!govtIdFile ? 'disabled' : ''}`}
-                      onClick={govtIdFile ? handleFinalSubmit : undefined}
+                      onClick={handleBrowseFiles}
                       style={{
-                        backgroundColor: govtIdFile ? '#26890D' : '#ccc',
-                        cursor: govtIdFile ? 'pointer' : 'not-allowed'
+                        border: '2px dashed #ccc',
+                        borderRadius: '8px',
+                        padding: '60px 20px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        backgroundColor: '#f8f9fa',
+                        marginBottom: '15px'
                       }}
                     >
-                      <AiOutlineCheck fontSize="20px" color="#ffff" />
+                      <FaUpload fontSize="48px" color="#6c757d" style={{ marginBottom: '15px' }} />
+                      <p style={{ margin: '10px 0', color: '#6c757d' }}>
+                        Click to browse and select your Government ID
+                      </p>
+                      <small style={{ color: '#6c757d' }}>
+                        Supported formats: JPG, PNG, PDF (Max 5MB)
+                      </small>
                     </div>
-                  </div>
-                  <div className="disclaimer_text_final">
-                    <IoMdInformationCircle color="#316BDE" />
-                    <small>
-                      Please upload a clear image of your valid government-issued photo ID 
-                      (Driver's License, Passport, National ID, etc.)
-                    </small>
+                  )}
+                  
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf"
+                    style={{ display: 'none' }}
+                  />
+                  
+                  <div style={{ 
+                    marginTop: '15px', 
+                    color: '#316BDE', 
+                    fontSize: '14px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: '5px'
+                  }}>
+                    <IoMdInformationCircle />
+                    <small>Upload a valid government-issued photo ID.</small>
                   </div>
                 </div>
               </div>
@@ -624,41 +645,6 @@ const WebCamera = () => {
                       </button>
                     </div>
                   </form>
-                </div>
-              </div>
-            ) : showWebcam ? (
-              <div className="webcam_container">
-                <div className="text_close_btn">
-                  <p>Capture your photograph</p>
-                  <IoMdCloseCircle
-                    onClick={handleCloseWebcam}
-                    fontSize="22px"
-                    color="gray"
-                    cursor="pointer"
-                  />
-                </div>
-                <div className="webcam_container2">
-                  <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    width={515}
-                    height={100}
-                  />
-                  <div className="camera_btn">
-                    <FaCamera
-                      onClick={handleTakeSnapshot}
-                      fontSize="20px"
-                      color="black"
-                    />
-                  </div>
-                </div>
-                <div className="disclaimer_text">
-                  <IoMdInformationCircle color="#316BDE" />
-                  <small>
-                    Please capture a clear, front-facing portrait photo of yourself. <br />
-                    Make sure your face is well-lit and centered in the frame.
-                  </small>
                 </div>
               </div>
             ) : showDisclaimer ? (
@@ -879,6 +865,32 @@ const WebCamera = () => {
                   </div>
                 </div>
               )
+            )}
+            
+            {/* Submit Button - Only show when both photo and ID are ready */}
+            {showSideBySide && (
+              <div style={{ 
+                textAlign: 'center', 
+                marginTop: '30px',
+                paddingBottom: '30px'
+              }}>
+                <button
+                  onClick={handleFinalSubmit}
+                  disabled={!imageSrc || !govtIdFile}
+                  style={{
+                    background: (!imageSrc || !govtIdFile) ? "#ccc" : "#26890D",
+                    color: "#fff",
+                    fontWeight: 600,
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 18,
+                    padding: "15px 80px",
+                    cursor: (!imageSrc || !govtIdFile) ? "not-allowed" : "pointer"
+                  }}
+                >
+                  Submit Both
+                </button>
+              </div>
             )}
           </div>
         </div>
