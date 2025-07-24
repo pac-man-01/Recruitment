@@ -298,202 +298,306 @@ const WebCamera = () => {
     setFormData(formData);
   };
 
+  // Responsive styles
+  const containerStyle = {
+    fontFamily: "Open Sans, sans-serif",
+    width: '100%',
+    minHeight: '100vh',
+    backgroundColor: '#f5f5f5'
+  };
+
+  const sideBySideContainerStyle = {
+    display: 'flex',
+    flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+    gap: '20px',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: '20px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+    flexWrap: 'wrap'
+  };
+
+  const cardStyle = {
+    background: '#fff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+    width: window.innerWidth < 768 ? '100%' : '400px',
+    maxWidth: '100%',
+    textAlign: 'center',
+    marginBottom: '20px'
+  };
+
   return (
-    <div style={{ fontFamily: "Open Sans, sans-serif" }}>
+    <div style={containerStyle}>
       <div className="row mt-2">
-        <div className="col-md-12 ">
+        <div className="col-md-12">
           <div className="img_container">
             {showSideBySide ? (
-              <div style={{ 
-                display: 'flex', 
-                gap: '30px', 
-                justifyContent: 'center', 
-                alignItems: 'flex-start',
-                padding: '20px',
-                minHeight: '70vh'
-              }}>
-                {/* Photo Capture Section */}
-                <div style={{
-                  background: '#fff',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                  width: '400px',
-                  textAlign: 'center'
+              <div>
+                <h2 style={{ 
+                  textAlign: 'center', 
+                  marginBottom: '30px', 
+                  color: '#333',
+                  fontSize: '24px'
                 }}>
-                  <h3 style={{ marginBottom: '20px', color: '#333' }}>Capture Your Photograph</h3>
-                  
-                  {imageSrc ? (
-                    <div>
-                      <img 
-                        src={imageSrc} 
-                        alt="Captured" 
-                        style={{ 
-                          width: '100%', 
-                          maxHeight: '300px', 
-                          objectFit: 'contain',
-                          border: '2px solid #ddd',
-                          borderRadius: '8px',
-                          marginBottom: '15px'
-                        }} 
-                      />
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                        <button
-                          onClick={handleRetakeSnapshot}
-                          style={{
-                            background: '#6c757d',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Retake
-                        </button>
+                  Photo & Government ID Verification
+                </h2>
+                
+                <div style={sideBySideContainerStyle}>
+                  {/* Photo Capture Section */}
+                  <div style={cardStyle}>
+                    <h3 style={{ 
+                      marginBottom: '20px', 
+                      color: '#333',
+                      fontSize: '18px'
+                    }}>
+                      📷 Capture Your Photograph
+                    </h3>
+                    
+                    {imageSrc ? (
+                      <div>
+                        <img 
+                          src={imageSrc} 
+                          alt="Captured" 
+                          style={{ 
+                            width: '100%', 
+                            maxHeight: '250px', 
+                            objectFit: 'contain',
+                            border: '2px solid #26890D',
+                            borderRadius: '8px',
+                            marginBottom: '15px'
+                          }} 
+                        />
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: '10px', 
+                          justifyContent: 'center',
+                          flexWrap: 'wrap'
+                        }}>
+                          <button
+                            onClick={handleRetakeSnapshot}
+                            style={{
+                              background: '#6c757d',
+                              color: 'white',
+                              border: 'none',
+                              padding: '10px 20px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            🔄 Retake Photo
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <Webcam
-                        audio={false}
-                        ref={webcamRef}
-                        screenshotFormat="image/jpeg"
-                        width={350}
-                        height={260}
-                        style={{ borderRadius: '8px', marginBottom: '15px' }}
-                      />
-                      <button
-                        onClick={handleTakeSnapshot}
-                        style={{
-                          background: '#26890D',
-                          color: 'white',
-                          border: 'none',
-                          padding: '10px 20px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
+                    ) : (
+                      <div>
+                        <div style={{
+                          border: '2px dashed #ccc',
+                          borderRadius: '8px',
+                          padding: '20px',
+                          marginBottom: '15px',
+                          minHeight: '200px',
                           display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          margin: '0 auto'
+                          flexDirection: 'column',
+                          justifyContent: 'center'
+                        }}>
+                          <Webcam
+                            audio={false}
+                            ref={webcamRef}
+                            screenshotFormat="image/jpeg"
+                            width="100%"
+                            height={200}
+                            style={{ 
+                              borderRadius: '8px', 
+                              marginBottom: '15px',
+                              maxWidth: '300px',
+                              margin: '0 auto'
+                            }}
+                          />
+                          <button
+                            onClick={handleTakeSnapshot}
+                            style={{
+                              background: '#26890D',
+                              color: 'white',
+                              border: 'none',
+                              padding: '12px 24px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              margin: '0 auto',
+                              fontSize: '14px'
+                            }}
+                          >
+                            <FaCamera /> Capture Photo
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div style={{ 
+                      marginTop: '15px', 
+                      color: '#316BDE', 
+                      fontSize: '12px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}>
+                      <IoMdInformationCircle />
+                      <small>Please capture a clear, front-facing portrait photo.</small>
+                    </div>
+                  </div>
+
+                  {/* Government ID Upload Section */}
+                  <div style={cardStyle}>
+                    <h3 style={{ 
+                      marginBottom: '20px', 
+                      color: '#333',
+                      fontSize: '18px'
+                    }}>
+                      🆔 Upload Government ID
+                    </h3>
+                    
+                    {govtIdPreview ? (
+                      <div>
+                        <img 
+                          src={govtIdPreview} 
+                          alt="Government ID" 
+                          style={{ 
+                            width: '100%', 
+                            maxHeight: '250px', 
+                            objectFit: 'contain',
+                            border: '2px solid #26890D',
+                            borderRadius: '8px',
+                            marginBottom: '15px'
+                          }} 
+                        />
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: '10px', 
+                          justifyContent: 'center',
+                          flexWrap: 'wrap'
+                        }}>
+                          <button
+                            onClick={handleRemoveGovtId}
+                            style={{
+                              background: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            🗑️ Remove
+                          </button>
+                          <button
+                            onClick={handleBrowseFiles}
+                            style={{
+                              background: '#6c757d',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            📁 Choose Different
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={handleBrowseFiles}
+                        style={{
+                          border: '2px dashed #ccc',
+                          borderRadius: '8px',
+                          padding: '40px 20px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          backgroundColor: '#f8f9fa',
+                          marginBottom: '15px',
+                          minHeight: '200px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center'
                         }}
                       >
-                        <FaCamera /> Capture Photo
-                      </button>
+                        <FaUpload fontSize="48px" color="#6c757d" style={{ marginBottom: '15px' }} />
+                        <p style={{ margin: '10px 0', color: '#6c757d', fontSize: '16px' }}>
+                          Click to browse and select your Government ID
+                        </p>
+                        <small style={{ color: '#6c757d' }}>
+                          Supported: JPG, PNG, PDF (Max 5MB)
+                        </small>
+                      </div>
+                    )}
+                    
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf"
+                      style={{ display: 'none' }}
+                    />
+                    
+                    <div style={{ 
+                      marginTop: '15px', 
+                      color: '#316BDE', 
+                      fontSize: '12px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}>
+                      <IoMdInformationCircle />
+                      <small>Upload a valid government-issued photo ID.</small>
                     </div>
-                  )}
-                  
-                  <div style={{ 
-                    marginTop: '15px', 
-                    color: '#316BDE', 
-                    fontSize: '14px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    gap: '5px'
-                  }}>
-                    <IoMdInformationCircle />
-                    <small>Please capture a clear, front-facing portrait photo.</small>
                   </div>
                 </div>
 
-                {/* Government ID Upload Section */}
-                <div style={{
-                  background: '#fff',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                  width: '400px',
-                  textAlign: 'center'
+                {/* Submit Button */}
+                <div style={{ 
+                  textAlign: 'center', 
+                  marginTop: '30px',
+                  paddingBottom: '30px'
                 }}>
-                  <h3 style={{ marginBottom: '20px', color: '#333' }}>Upload Government ID</h3>
+                  <button
+                    onClick={handleFinalSubmit}
+                    disabled={!imageSrc || !govtIdFile}
+                    style={{
+                      background: (!imageSrc || !govtIdFile) ? "#ccc" : "#26890D",
+                      color: "#fff",
+                      fontWeight: 600,
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 18,
+                      padding: "15px 40px",
+                      cursor: (!imageSrc || !govtIdFile) ? "not-allowed" : "pointer",
+                      minWidth: '200px'
+                    }}
+                  >
+                    {(!imageSrc || !govtIdFile) ? "Complete Both Steps" : "✓ Submit Both"}
+                  </button>
                   
-                  {govtIdPreview ? (
-                    <div>
-                      <img 
-                        src={govtIdPreview} 
-                        alt="Government ID" 
-                        style={{ 
-                          width: '100%', 
-                          maxHeight: '300px', 
-                          objectFit: 'contain',
-                          border: '2px solid #ddd',
-                          borderRadius: '8px',
-                          marginBottom: '15px'
-                        }} 
-                      />
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                        <button
-                          onClick={handleRemoveGovtId}
-                          style={{
-                            background: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Remove
-                        </button>
-                        <button
-                          onClick={handleBrowseFiles}
-                          style={{
-                            background: '#6c757d',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Choose Different
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={handleBrowseFiles}
-                      style={{
-                        border: '2px dashed #ccc',
-                        borderRadius: '8px',
-                        padding: '60px 20px',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        backgroundColor: '#f8f9fa',
-                        marginBottom: '15px'
-                      }}
-                    >
-                      <FaUpload fontSize="48px" color="#6c757d" style={{ marginBottom: '15px' }} />
-                      <p style={{ margin: '10px 0', color: '#6c757d' }}>
-                        Click to browse and select your Government ID
-                      </p>
-                      <small style={{ color: '#6c757d' }}>
-                        Supported formats: JPG, PNG, PDF (Max 5MB)
-                      </small>
-                    </div>
+                  {(!imageSrc || !govtIdFile) && (
+                    <p style={{ 
+                      marginTop: '10px', 
+                      fontSize: '14px', 
+                      color: '#666' 
+                    }}>
+                      Please {!imageSrc && !govtIdFile ? 'capture your photo and upload your ID' : 
+                             !imageSrc ? 'capture your photo' : 'upload your government ID'}
+                    </p>
                   )}
-                  
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*,.pdf"
-                    style={{ display: 'none' }}
-                  />
-                  
-                  <div style={{ 
-                    marginTop: '15px', 
-                    color: '#316BDE', 
-                    fontSize: '14px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    gap: '5px'
-                  }}>
-                    <IoMdInformationCircle />
-                    <small>Upload a valid government-issued photo ID.</small>
-                  </div>
                 </div>
               </div>
             ) : questionsPopup ? (
@@ -865,32 +969,6 @@ const WebCamera = () => {
                   </div>
                 </div>
               )
-            )}
-            
-            {/* Submit Button - Only show when both photo and ID are ready */}
-            {showSideBySide && (
-              <div style={{ 
-                textAlign: 'center', 
-                marginTop: '30px',
-                paddingBottom: '30px'
-              }}>
-                <button
-                  onClick={handleFinalSubmit}
-                  disabled={!imageSrc || !govtIdFile}
-                  style={{
-                    background: (!imageSrc || !govtIdFile) ? "#ccc" : "#26890D",
-                    color: "#fff",
-                    fontWeight: 600,
-                    border: "none",
-                    borderRadius: 6,
-                    fontSize: 18,
-                    padding: "15px 80px",
-                    cursor: (!imageSrc || !govtIdFile) ? "not-allowed" : "pointer"
-                  }}
-                >
-                  Submit Both
-                </button>
-              </div>
             )}
           </div>
         </div>
