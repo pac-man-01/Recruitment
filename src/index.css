@@ -1,0 +1,89 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body {
+  margin: 0;
+  /* background-image: url("../src/Util/Images/chat-boat-new.jpg"); */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  font-family: 'Open sans', 'sans-serif';
+}
+
+code {
+  font-family: 'Open sans', 'sans-serif';
+}
+.audio-recorder-mic {
+  background-color: #9e9e9d!important;
+}
+/* .mic-btn{
+  width: 400px !important;
+} */
+.btn {
+  @apply !rounded-none
+}
+/* Create a custom checkbox */
+input[type="checkbox"] {
+  display: none;
+}
+.custom-checkbox-container {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+}
+.custom-checkbox-container .custom-checkbox {
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  background-color: #fff;
+  border: 1.3px solid #000;
+  border-radius: 0; 
+  vertical-align: middle;
+  position: relative;
+  cursor: pointer;
+  margin-right: 8px;
+}
+.custom-checkbox-container .custom-checkbox::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 40%;
+  left: 55%;
+  width: 6px;
+  height: 12px;
+  border: solid #000;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg);
+  opacity: 0; /* Hidden by default */
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.custom-checkbox-container  input[type="checkbox"]:checked + .custom-checkbox::after {
+  opacity: 1;
+}
+.custom-checkbox-container  label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.custom-checkbox-container input[type="checkbox"]:checked + .custom-checkbox {
+  background-color:#26890D;
+  border:1px solid #26890D;
+}
+.custom-checkbox-container .custom-checkbox::after {
+  border:1px solid #fff;
+}
+.custom-checkbox:disabled  {
+  opacity: .4;
+}
+.custom-checkbox[disabled] {
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
+.form-select {
+  border-radius: 0px !important;
+}
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm {
+  border-radius: 0px;
+}
